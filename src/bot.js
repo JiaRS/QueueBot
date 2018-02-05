@@ -12,7 +12,10 @@ var adminchannel = "trials";
 var lastcheck = new Date();
 var mailClient;
 
-// the ready event is vital, it means that your bot will only start reacting to information
+const DEFAULTPREFIX = '/';
+const ADMINPREFIX = '!';
+
+
 // from Discord _after_ ready is emitted.
 var mailListener;
 function nFormatter(num, digits) {
@@ -32,21 +35,113 @@ function nFormatter(num, digits) {
 	return num.toFixed(digits).replace(rx, "$1");
 }
 // create an event listener for messages
+var DEBUG = (function(){
+	var timestamp = function(){};
+	timestamp.toString = function(){
+		return "[" + (new Date).toLocaleTimeString() + "]";
+	};
+	return {
+		log: console.log.bind(console, '%s', timestamp)
+	}
+})();
 
 var last=0;
+/*
+ * list of commands, descriptions and functions
+ * keep manually sorted aplabetically
+ */
+var commands = {
+	'add': {
+		description: 'adds customer and q role ',
+		parameters: ["user tag"],
+		execute: function(message,params){
+			//message.reply('hello');
+			//TODO
+		}
+	},
+	'commands':{
+		description: 'displays list of commands',
+		parameters: [],
+		execute: function(message,params){
+			var response = "command list:";
+			for(var command in commands){
+				if(commands.hasOwnProperty(command)){
+					response += '\n'+DEFAULTPREFIX+command;
+					for(var i;i<commands[command].parameters.length;i++){
+						response += ' <'+commands[command].parameters[i]+'>';
+					}
+				}
+				response += ": " + commands[command].description;
+			}
+			message.reply(response);
+		}
+	},
+	'help': {
+		description: 'displays this help message',
+		parameters: [],
+		execute: function(message,params){
+			message.reply('hello');
+			//TODO
+		}
+	},
+	'timezone': {
+		description: 'allows you to change your timezone role',
+		parameters: ["USA AUS or EU"],
+		help: 'timezones to choose from: USA, AUS, and EU. \n Example of usage: `'+DEFAULTPREFIX+'timezone EU`',
+		execute: function(message,params){
+			if(typeof(params[1]) === 'undefined'){
+				message.reply(this.help);
+				return;
+			}
+			var user = message.member;
+			var timezone = params[1].toUpperCase();
+			switch(timezone){
+				case 'EU':
+				case 'USA':
+				case 'AUS':
+					removeTimezone(user, function(){user.addRole(message.channel.guild.roles.find("name",timezone).id,"added "+timezone).then(function(){
+						message.reply("timezone successfully changed to "+timezone);
+					}).catch(console.error);});
+					break;
+				default:
+					message.reply(this.help);
+					break;
+			}
+		}
+	},
+};
 
+/*
+ *
+ */
+function handleCommand(message,params){
+	var command;
+	//drop prefix
+	if(params[0].substr(1) in commands){
+		command = commands[params[0].substr(1)];
+		command.execute(message,params);
+	}
+}
+
+/*
+ *
+ */
+function handleAdminCommand(message,params){
+	var command;
+}
+bot.on('message', message =>{
+	var args = message.content.split(" ");
+	if(args[0].startsWith(DEFAULTPREFIX)){
+		handleCommand(message,args);
+	}
+});
+/*
 bot.on('message', message => {
 	   var admin=message.member.hasPermission('ADMINISTRATOR');
 	   var mod=message.member.roles.has(message.channel.guild.roles.find("name","stuff").id);
 	   var rank=message.member.roles.has(message.channel.guild.roles.find("name","ranks").id)
 	   if(admin) mod=true;
 	   if(mod) rank=true;
-	   /*
-	   console.log(message.member.roles);
-	   console.log("linebreak");
-	   console.log(message.channel.guild.roles.find("name","stuff").id);
-	   console.log("linebreak");
-	   console.log(message.member.roles.has(message.channel.guild.roles.find("name","stuff").id));*/
 	   if(message.channel.name === 'customer-chat' && !rank){
 		   //customer AI response
 		   if(message.content.toLowerCase().includes("thank") && message.content.toLowerCase().includes("done") ||
@@ -73,34 +168,7 @@ bot.on('message', message => {
 		   }
 	   }
 	   if (message.content.startsWith("/timezone")){
-		   //check if they already have the rank
-		   var args = message.content.split(" ");
-		   if(typeof(args[1]) === 'undefined'){
-			   message.reply("timezones to choose from: USA, AUS, and EU. \n Example of usage: `/timezone EU`");
-				 return;
-			 }
-		   var user = message.member;
-			 var timezone =args[1].toUpperCase();
-		   switch(timezone){
-			   case 'EU':
-				   remove_timezone(user, function(){user.addRole(message.channel.guild.roles.find("name","EU").id,"added EU").then(function(){
-						 message.reply("timezone successfully changed to "+timezone);
-					 }).catch(console.error);});
-				   break;
-				 case 'USA':
-				   remove_timezone(user, function(){user.addRole(message.channel.guild.roles.find("name","USA").id,"added USA").then(function(){
-						 message.reply("timezone successfully changed to "+timezone);
-					 }).catch(console.error);});
-				   break;
-				 case 'AUS':
-				   remove_timezone(user, function(){user.addRole(message.channel.guild.roles.find("name","AUS").id,"added AUS").then(function(){
-						 message.reply("timezone successfully changed to "+timezone);
-					 }).catch(console.error);});
-				   break;
-			   default:
-				   message.reply("timezones to choose from: USA, AUS, and EU. \n Example of usage: `/timezone EU`");
-				   break;
-		   }
+
 	   }
 	   if (message.content === '/help') {
 		   if(rank){
@@ -322,8 +390,8 @@ bot.on('message', message => {
 	   }
 
 });
-
-	function remove_timezone(user,callback){
+*/
+	function removeTimezone(user,callback){
 		var timezones = ["EU","USA","AUS"];
 		var roles = [];
 		var i=0;
@@ -670,13 +738,13 @@ function ping(message){
 	var random = makeid();
 	// create reusable transporter object using the default SMTP transport
 	let transporter = nodemailer.createTransport({
-												 host: "xo4.x10hosting.com",
-												 port: 587,
-												 auth: {
-												 user: mailClient.username,
-												 pass: mailClient.password
-												 }
-												 });
+											host: "xo4.x10hosting.com",
+											port: 587,
+											auth: {
+												user: mailClient.username,
+												pass: mailClient.password
+											}
+										});
 
 	// setup email data with unicode symbols
 	let mailOptions = {
